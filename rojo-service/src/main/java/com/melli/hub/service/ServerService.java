@@ -13,6 +13,6 @@ import org.springframework.web.multipart.MultipartFile;
  * Date: 1/4/2025
  */
 public interface ServerService {
-    AddServerResponse batchInsert(MultipartFile multipartFile, String serverIp, String serverName, String protocol) throws InternalServiceException;
+    AddServerResponse batchInsert(MultipartFile multipartFile, String serverIp, String serverName, String protocol, boolean isJson, String country) throws InternalServiceException;
     ServerResponse getServer(String deviceName, String ip) throws InternalServiceException;
 }

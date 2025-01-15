@@ -7,12 +7,19 @@ import com.melli.hub.util.date.DateUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import javax.xml.bind.DatatypeConverter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -146,7 +153,7 @@ public class Utility {
         return kf.generatePublic(spec);
     }
 
-    public static void main(String[] args) {
+    public static void main1(String[] args) {
         String input = "10000|0079993141|1|98a3f433-ac26-42ad-9b0d-227a121250df";
 
         try {
@@ -280,5 +287,111 @@ public class Utility {
             log.error("error in parse date {} and error is {}", georgianDate, e.getMessage());
         }
         return DateUtils.getLocaleDate(DateUtils.FARSI_LOCALE, expireDate, "yyyy/MM/dd", true);
+    }
+
+
+    public static Map<String, String> parseVlessUri(String uri, int buildCurrent, int standardSupport) throws URISyntaxException {
+        URI parsedUri = new URI(uri);
+        String scheme = parsedUri.getScheme();
+        String uuid = parsedUri.getUserInfo();
+        String host = parsedUri.getHost();
+        int port = parsedUri.getPort();
+        String query = parsedUri.getQuery();
+        String fragment = parsedUri.getFragment();
+
+        Map<String, String> queryParams = new HashMap<>();
+        if (query != null) {
+            for (String param : query.split("&")) {
+                String[] pair = param.split("=");
+                if (pair.length == 2) {
+                    String key = pair[0];
+                    String value = null;
+                    if (buildCurrent >= standardSupport) {
+                        value = URLDecoder.decode(pair[1], StandardCharsets.UTF_8);
+                    }
+                    queryParams.put(key, value);
+                }
+            }
+        }
+
+        Map<String, String> parsedData = new HashMap<>();
+        parsedData.put("scheme", scheme);
+        parsedData.put("uuid", uuid);
+        parsedData.put("host", host);
+        parsedData.put("port", String.valueOf(port));
+        parsedData.putAll(queryParams);
+        parsedData.put("fragment", fragment);
+
+        return parsedData;
+    }
+
+    public static String buildConfig(Map<String, String> parsedData) throws JSONException {
+        JSONObject config = new JSONObject();
+
+        String alpnValue = parsedData.get("alpn");
+
+// Initialize an empty JSONArray for ALPN
+        JSONArray alpnArray = new JSONArray();
+
+// Check if ALPN value is not null or empty
+        if (alpnValue != null && !alpnValue.trim().isEmpty()) {
+            // Split the ALPN value by commas and add to the JSONArray
+            String[] alpnValues = alpnValue.split(",");
+            for (String value : alpnValues) {
+                if (!value.trim().isEmpty()) { // Skip empty values
+                    alpnArray.put(value.trim());
+                }
+            }
+        }
+
+        // Inbounds (local proxy settings)
+        JSONArray inbounds = new JSONArray();
+        JSONObject socksInbound = new JSONObject()
+                .put("port", 10808) // Local SOCKS5 port
+                .put("protocol", "socks")
+                .put("settings", new JSONObject()
+                        .put("auth", "noauth")
+                        .put("udp", true));
+        inbounds.put(socksInbound);
+        config.put("inbounds", inbounds);
+
+        // Outbounds (server connection settings)
+        JSONArray outbounds = new JSONArray();
+        JSONObject vlessOutbound = new JSONObject()
+                .put("protocol", "vless")
+                .put("settings", new JSONObject()
+                        .put("vnext", new JSONArray().put(new JSONObject()
+                                .put("address", parsedData.get("host"))
+                                .put("port", Integer.parseInt(parsedData.get("port")))
+                                .put("users", new JSONArray().put(new JSONObject()
+                                        .put("id", parsedData.get("uuid"))
+                                        .put("encryption", "none")
+                                ))
+                        )))
+                .put("streamSettings", new JSONObject()
+                        .put("network", parsedData.get("type"))
+                        .put("security", parsedData.get("security"))
+                        .put("httpSettings", new JSONObject()
+                                .put("path", parsedData.get("path"))
+                                .put("headers", new JSONObject()
+                                        .put("Host", parsedData.get("host")))
+                        )
+                        .put("tlsSettings", new JSONObject()
+                                .put("serverName", parsedData.get("sni"))
+                                .put("fingerprint", parsedData.get("fp"))
+                                .put("alpn", alpnArray)
+                        )
+                );
+        outbounds.put(vlessOutbound);
+        config.put("outbounds", outbounds);
+
+        return config.toString();
+    }
+
+    public static void main(String[] args) throws URISyntaxException {
+        String url1 = "vless://a26e2e6d-1d8b-4c43-8640-dd10af2ab4bd@49.13.6.66:37152?type=tcp&security=none#test-5qgq5ylj";
+        String url = "vless://6b8be0f7-0518-42f9-98c3-0106f2752963@wWw.sPeedTesT.net:8080?type=httpupgrade&path=%2F%3Fed%3D1024&host=download.gamecentermahan.info.&security=none#Rojo-httpupgrade-lqfszua9";
+        Map<String, String> parseVlessUri = parseVlessUri(url, 33, 31);
+        System.out.println(buildConfig(parseVlessUri));
     }
 }

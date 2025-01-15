@@ -17,7 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
 import java.util.Date;
 import java.util.List;
 
@@ -32,7 +31,7 @@ public class ServerServiceImplementation implements ServerService {
     private final Helper helper;
 
     @Override
-    public AddServerResponse batchInsert(MultipartFile multipartFile, String serverIp, String serverName, String protocol) throws InternalServiceException {
+    public AddServerResponse batchInsert(MultipartFile multipartFile, String serverIp, String serverName, String protocol, boolean isJson, String country) throws InternalServiceException {
 
         int allRow = 0;
         int successRow = 0;
@@ -51,6 +50,8 @@ public class ServerServiceImplementation implements ServerService {
                 serverEntity.setCreatedBy("Admin");
                 serverEntity.setCountUsed(0);
                 serverEntity.setCreatedAt(new Date());
+                serverEntity.setJson(isJson);
+                serverEntity.setCountry(country);
                 serverRepository.save(serverEntity);
                 successRow++;
             }
@@ -78,6 +79,6 @@ public class ServerServiceImplementation implements ServerService {
         serverEntity.setLastUsedTime(new Date());
         serverRepository.save(serverEntity);
 
-        return new ServerResponse(serverEntity.getConfig());
+        return new ServerResponse(serverEntity.getConfig(), serverEntity.getCountry(), serverEntity.isJson());
     }
 }

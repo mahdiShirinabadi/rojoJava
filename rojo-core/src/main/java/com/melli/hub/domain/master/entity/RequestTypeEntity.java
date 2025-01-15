@@ -27,10 +27,6 @@ public class RequestTypeEntity extends BaseEntityAudit implements GrantedAuthori
     @Column(name= "display")
     private int display;
 
-    @Column(name = "end_time")
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date endTime;
-
     @Override
     public String getAuthority() {
         return name;

@@ -35,6 +35,11 @@ public class ServerEntity extends BaseEntityAudit implements Serializable {
     @Column(name = "protocol")
     private String protocol;
 
+    @Column(name = "country")
+    private String country;
+
+    @Column(name = "is_json")
+    private boolean isJson;
 
     @Column(name = "last_used_time", nullable = false)
     @Temporal(TemporalType.TIMESTAMP)

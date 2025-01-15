@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ChannelRepository extends CrudRepository<ChannelEntity, Long> {
-    ChannelEntity findByUsernameAndEndTimeIsNull(String username);
-    ChannelEntity findByUsernameAndStatusAndEndTimeIsNull(String email, int status);
+    ChannelEntity findByUsername(String username);
+    ChannelEntity findByUsernameAndStatus(String email, int status);
     Page<ChannelEntity> findAll(Specification<ChannelEntity> spec, Pageable pageable);
 }

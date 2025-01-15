@@ -14,10 +14,13 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
 import java.util.*;
 
 @RequiredArgsConstructor
@@ -30,7 +33,7 @@ public class ChannelServiceImplementation implements ChannelService {
 
     @Override
     public ChannelEntity findByUsernameAndStatus(String username, String status) throws InternalServiceException {
-        ChannelEntity profileEntity = channelRepository.findByUsernameAndStatusAndEndTimeIsNull(username, Integer.parseInt(status));
+        ChannelEntity profileEntity = channelRepository.findByUsernameAndStatus(username, Integer.parseInt(status));
         if (profileEntity == null) {
             throw new InternalServiceException("user not found", StatusService.CHANNEL_NOT_FOUND, HttpStatus.FORBIDDEN);
         }
@@ -41,7 +44,7 @@ public class ChannelServiceImplementation implements ChannelService {
     @Override
     public ChannelEntity findByUsername(String username) {
         log.info("start findByUsername for username({})", username);
-        return channelRepository.findByUsernameAndEndTimeIsNull(username);
+        return channelRepository.findByUsername(username);
     }
 
 
@@ -122,5 +125,75 @@ public class ChannelServiceImplementation implements ChannelService {
         channelEntity.setAccessToken(null);
         channelEntity.setRefreshToken(null);
         channelRepository.save(channelEntity);
+    }
+
+    public static JSONObject getXrayOutboundFromURI(String uri) {
+        try {
+            // Parse the URI
+            URI parsedUri = new URI(uri);
+
+            // Extract protocol (e.g., vmess, vless, trojan)
+            String protocol = parsedUri.getScheme();
+
+            // Decode the configuration (usually Base64 encoded)
+            String decodedConfig = new String(Base64.getDecoder().decode(parsedUri.getAuthority()));
+
+            // Parse the decoded configuration into a JSON object
+            JSONObject configJson = new JSONObject(decodedConfig);
+
+            // Generate outbound configuration based on the protocol
+            JSONObject outbound = new JSONObject();
+            outbound.put("protocol", protocol);
+
+            JSONObject settings = new JSONObject();
+            JSONObject server = new JSONObject();
+            server.put("address", configJson.getString("add")); // Server address
+            server.put("port", configJson.getInt("port"));      // Server port
+
+            if ("vmess".equals(protocol) || "vless".equals(protocol)) {
+                settings.put("vnext", new JSONArray().put(new JSONObject()
+                        .put("address", configJson.getString("add"))
+                        .put("port", configJson.getInt("port"))
+                        .put("users", new JSONArray().put(new JSONObject()
+                                .put("id", configJson.getString("id"))
+                                .put("alterId", configJson.optInt("aid", 0))
+                                .put("security", configJson.optString("scy", "auto"))
+                        ))
+                ));
+            } else if ("trojan".equals(protocol)) {
+                settings.put("servers", new JSONArray().put(new JSONObject()
+                        .put("address", configJson.getString("add"))
+                        .put("port", configJson.getInt("port"))
+                        .put("password", configJson.getString("password"))
+                ));
+            }
+
+            outbound.put("settings", settings);
+
+            // Add transport and TLS settings if available
+            if (configJson.has("net")) {
+                JSONObject streamSettings = new JSONObject();
+                streamSettings.put("network", configJson.getString("net"));
+
+                if (configJson.has("tls")) {
+                    JSONObject tlsSettings = new JSONObject();
+                    tlsSettings.put("security", configJson.getString("tls"));
+                    streamSettings.put("security", tlsSettings);
+                }
+
+                outbound.put("streamSettings", streamSettings);
+            }
+
+            return outbound;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static void main(String[] args) {
+
+        System.out.println(getXrayOutboundFromURI("vless://25fbcc73-4b22-4bc3-9485-3c0fda6b33e4@WwW.spEEdTest.net:2082?type=ws&path=%2F%3Fed%3D1024&host=download.gamecentermahan.info&security=none#WS-Test-b8cu455v"));
+
     }
 }

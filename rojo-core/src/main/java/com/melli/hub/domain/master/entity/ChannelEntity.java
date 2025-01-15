@@ -70,10 +70,6 @@ public class ChannelEntity extends BaseEntityAudit implements Serializable, User
     @Column(name = "ip")
     private String ip;
 
-    @Column(name = "end_time")
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date endTime;
-
     @JsonIgnore
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "channelEntity")
     private List<ChannelRequestTypeEntity> channelAccessList = new ArrayList<>();

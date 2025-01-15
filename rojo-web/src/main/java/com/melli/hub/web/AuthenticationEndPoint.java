@@ -28,6 +28,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -112,5 +114,10 @@ public class AuthenticationEndPoint extends WebEndPoint {
         log.info("start logout channel by ({}), ip({})", context.getChannelEntity().getUsername(), context.getClientIp());
         channelService.logout(context.getChannelEntity());
         return ResponseEntity.status(HttpStatus.OK).body(new BaseResponse<>(true));
+    }
+
+    public static void main(String[] args) {
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+        System.out.println(passwordEncoder.encode("masoud" + "M@hd!" + "masoud1367"));
     }
 }

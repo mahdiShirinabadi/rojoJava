@@ -13,4 +13,10 @@ import lombok.ToString;
 public class ServerResponse {
     @JsonProperty("config")
     private String config;
+
+    @JsonProperty("country")
+    private String country;
+
+    @JsonProperty("isJson")
+    private Boolean isJson;
 }

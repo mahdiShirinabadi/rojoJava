@@ -15,6 +15,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.util.matcher.IpAddressMatcher;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 
@@ -127,4 +131,184 @@ public class Helper {
             return ""; // Handle the error appropriately
         }
     }
+
+
+    public static Map<String, String> parseVlessUri(String uri, boolean version) throws URISyntaxException {
+        URI parsedUri = new URI(uri);
+        String scheme = parsedUri.getScheme();
+        String uuid = parsedUri.getUserInfo();
+        String host = parsedUri.getHost();
+        int port = parsedUri.getPort();
+        String query = parsedUri.getQuery();
+        String fragment = parsedUri.getFragment();
+
+        Map<String, String> queryParams = new HashMap<>();
+        if (query != null) {
+            for (String param : query.split("&")) {
+                String[] pair = param.split("=");
+                if (pair.length == 2) {
+                    String key = pair[0];
+                    String value = pair[1];
+                    if (version) {
+                        value = URLDecoder.decode(pair[1], StandardCharsets.UTF_8);
+                    }
+                    queryParams.put(key, value);
+                }
+            }
+        }
+
+        Map<String, String> parsedData = new HashMap<>();
+        parsedData.put("scheme", scheme);
+        parsedData.put("uuid", uuid);
+        parsedData.put("host", host);
+        parsedData.put("port", String.valueOf(port));
+        parsedData.putAll(queryParams);
+        parsedData.put("fragment", fragment);
+
+        return parsedData;
+    }
+
+    public static String buildConfig(Map<String, String> parsedData) throws JSONException {
+        JSONObject config = new JSONObject();
+
+        String alpnValue = parsedData.get("alpn");
+
+// Initialize an empty JSONArray for ALPN
+        JSONArray alpnArray = new JSONArray();
+
+// Check if ALPN value is not null or empty
+        if (alpnValue != null && !alpnValue.trim().isEmpty()) {
+            // Split the ALPN value by commas and add to the JSONArray
+            String[] alpnValues = alpnValue.split(",");
+            for (String value : alpnValues) {
+                if (!value.trim().isEmpty()) { // Skip empty values
+                    alpnArray.put(value.trim());
+                }
+            }
+        }
+
+        // Inbounds (local proxy settings)
+        JSONArray inbounds = new JSONArray();
+        JSONObject socksInbound = new JSONObject()
+                .put("port", 10808) // Local SOCKS5 port
+                .put("protocol", "socks")
+                .put("settings", new JSONObject()
+                        .put("auth", "noauth")
+                        .put("udp", true));
+        inbounds.put(socksInbound);
+        config.put("inbounds", inbounds);
+
+        // Outbounds (server connection settings)
+        JSONArray outbounds = new JSONArray();
+        JSONObject vlessOutbound = new JSONObject()
+                .put("protocol", "vless")
+                .put("settings", new JSONObject()
+                        .put("vnext", new JSONArray().put(new JSONObject()
+                                .put("address", parsedData.get("host"))
+                                .put("port", Integer.parseInt(parsedData.get("port")))
+                                .put("users", new JSONArray().put(new JSONObject()
+                                        .put("id", parsedData.get("uuid"))
+                                        .put("encryption", "none")
+                                ))
+                        )))
+                .put("streamSettings", new JSONObject()
+                        .put("network", parsedData.get("type"))
+                        .put("security", parsedData.get("security"))
+                        .put("httpSettings", new JSONObject()
+                                .put("path", parsedData.get("path"))
+                                .put("headers", new JSONObject()
+                                        .put("Host", parsedData.get("host")))
+                        )
+                        .put("tlsSettings", new JSONObject()
+                                .put("serverName", parsedData.get("sni"))
+                                .put("fingerprint", parsedData.get("fp"))
+                                .put("alpn", alpnArray)
+                        )
+                );
+        outbounds.put(vlessOutbound);
+        config.put("outbounds", outbounds);
+
+        return config.toString();
+    }
+
+
+    public static void main(String[] args) throws Exception {
+        String url="vless://d135d0d1-8d82-4058-a69e-c690ed145615@torobcom.gamecentermahan.info:2087?type=httpupgrade&path=%2F%3Fed%3D1024&host=torobcom.gamecentermahan.info&security=tls&fp=firefox&alpn=h2%2Chttp%2F1.1&sni=torobcom.gamecentermahan.info#NginX-01-user1SRV2";
+        Map<String, String> parseVlessUri = parseVlessUri(url,true);
+        String json = (buildConfig(parseVlessUri));
+        String DEFAULT_FULL_JSON_CONFIG = "{\n" +
+                "  \"dns\": {\n" +
+                "    \"hosts\": {\n" +
+                "      \"domain:googleapis.cn\": \"googleapis.com\"\n" +
+                "    },\n" +
+                "    \"servers\": [\n" +
+                "      \"1.1.1.1\"\n" +
+                "    ]\n" +
+                "  },\n" +
+                "  \"inbounds\": [\n" +
+                "    {\n" +
+                "      \"listen\": \"127.0.0.1\",\n" +
+                "      \"port\": 10808,\n" +
+                "      \"protocol\": \"socks\",\n" +
+                "      \"settings\": {\n" +
+                "        \"auth\": \"noauth\",\n" +
+                "        \"udp\": true,\n" +
+                "        \"userLevel\": 8\n" +
+                "      },\n" +
+                "      \"sniffing\": {\n" +
+                "        \"destOverride\": [],\n" +
+                "        \"enabled\": false\n" +
+                "      },\n" +
+                "      \"tag\": \"socks\"\n" +
+                "    },\n" +
+                "    {\n" +
+                "      \"listen\": \"127.0.0.1\",\n" +
+                "      \"port\": 10809,\n" +
+                "      \"protocol\": \"http\",\n" +
+                "      \"settings\": {\n" +
+                "        \"userLevel\": 8\n" +
+                "      },\n" +
+                "      \"tag\": \"http\"\n" +
+                "    }\n" +
+                "  ],\n" +
+                "  \"log\": {\n" +
+                "    \"loglevel\": \"error\"\n" +
+                "  },\n" +
+                "  \"outbounds\": [\n" +
+                "    "+ json +",\n" +
+                "    {\n" +
+                "      \"protocol\": \"freedom\",\n" +
+                "      \"settings\": {},\n" +
+                "      \"tag\": \"direct\"\n" +
+                "    },\n" +
+                "    {\n" +
+                "      \"protocol\": \"blackhole\",\n" +
+                "      \"settings\": {\n" +
+                "        \"response\": {\n" +
+                "          \"type\": \"http\"\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"tag\": \"block\"\n" +
+                "    }\n" +
+                "  ],\n" +
+                "  \"remarks\": \"test\",\n" +
+                "  \"routing\": {\n" +
+                "    \"domainStrategy\": \"IPIfNonMatch\",\n" +
+                "    \"rules\": [\n" +
+                "      {\n" +
+                "        \"ip\": [\n" +
+                "          \"1.1.1.1\"\n" +
+                "        ],\n" +
+                "        \"outboundTag\": \"proxy\",\n" +
+                "        \"port\": \"53\",\n" +
+                "        \"type\": \"field\"\n" +
+                "      }\n" +
+                "    ]\n" +
+                "  }\n" +
+                "}";
+        System.out.println(DEFAULT_FULL_JSON_CONFIG);
+    }
+
+
+
 }

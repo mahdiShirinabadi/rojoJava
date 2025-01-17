@@ -11,6 +11,7 @@ public interface StatusService {
     int INVALID_USERNAME_PASSWORD=6;
 
     int SUSPEND = 900;
+    int CAN_NOT_READ_FILE = 987;
     int ERROR_IN_LOCK = 988;
     int TIMEOUT = 998;
     int GENERAL_ERROR = 999;

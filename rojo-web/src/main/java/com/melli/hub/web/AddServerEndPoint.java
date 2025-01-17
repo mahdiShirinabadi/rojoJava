@@ -61,6 +61,23 @@ public class AddServerEndPoint extends WebEndPoint {
     }
 
 
+    @Operation(security = {@SecurityRequirement(name = "bearer-key")}, summary = "ایحاد دسته ای کاربران", description = "add user by xlsx format")
+    @Timed(description = "menu duration add user")
+    @PostMapping(path = "addServerWithTemplate", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    public ResponseEntity<AddServerResponse> batchServerInsert(
+            @Valid @NotNull @RequestParam("template") MultipartFile template,
+            @Valid @NotNull @RequestParam("urls") MultipartFile urls,
+            @RequestParam("serverName") String serverName,
+            @RequestParam("serverIp") String serverIp,
+            @RequestParam("protocol") String protocol,
+            @RequestParam("country") String country,
+            @RequestParam("keyName") String keyName,
+            HttpServletRequest request) throws InternalServiceException {
+        AddServerResponse excelAddProfileToUnitResponse = serverService.batchInsertWithTemplate(template, urls, serverIp, serverName, protocol, true, country, keyName);
+        return ResponseEntity.status(HttpStatus.OK).body(excelAddProfileToUnitResponse);
+    }
+
+
     public static void main(String[] args) {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
         String password = Helper.encodePassword(passwordEncoder, "0077847660", "0077847660");

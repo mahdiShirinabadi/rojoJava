@@ -14,5 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
  */
 public interface ServerService {
     AddServerResponse batchInsert(MultipartFile multipartFile, String serverIp, String serverName, String protocol, boolean isJson, String country) throws InternalServiceException;
+    AddServerResponse batchInsertWithTemplate(MultipartFile templateFile, MultipartFile valueFile, String serverIp, String serverName, String protocol, boolean isJson, String country, String keyName) throws InternalServiceException;
     ServerResponse getServer(String deviceName, String ip) throws InternalServiceException;
 }
